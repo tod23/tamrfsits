@@ -24,60 +24,6 @@ Julien Michel, Jordi Inglada. Temporal Attention Multi-Resolution Fusion of Sate
 #+END_QUOTE
 
 
-
-** Fiche capteur : étendre au-delà de la paire fixe
-
-Le modèle est entraîné sur un *couple fixe* de capteurs — Sentinel-2
-(10~m, haute résolution) et Landsat-8/9 (30~m, basse résolution) — fusionnés
-dans une représentation latente partagée via *deux tokens de capteur*
-(~src/tamrfsits/components/transformer.py~, ~hr_sensor_token~ / ~lr_sensor_token~,
-lignes~236--241~) et une *fusion binaire* (~torch.cat~, lignes~305--312~). Cette
-« paire » n'est pas une configuration : elle est *câblée en dur* dans
-l'architecture (2 encodeurs, 2 tokens, concat binaire, union des dates de 2
-capteurs). C'est la limite actuelle du modèle, explicitée à la
-Section~5.1.2 du rapport d'avancement (p.~30).
-
-*Ce qui est déjà généralisable sans toucher à l'architecture* : la *fiche
-capteur* est encodée dans ~bin/test.py~ (~SENSOR_PROFILES~, lignes~76--150~) : pour
-chaque capteur, on y déclare les bandes, la résolution et le MTF. Ce
-dictionnaire est *extensible* — on peut y ajouter les caractéristiques d'un 3ᵉ
-capteur pour le documenter / l'anticiper. En revanche, le *couple* d'inférence
-HR/LR reste câblé en dur (encodeurs, lignes~202,207--210,226--227~) : l'ajout
-d'un capteur dans ~SENSOR_PROFILES~ seul ne suffit pas à le faire fonctionner.
-
-*Ce qu'un 3ᵉ capteur exige réellement* (changement d'architecture, *pas* une
-config) :
-
-| Composant              | Actuel (paire fixe)            | Généralisation à N capteurs      |
-|------------------------+--------------------------------+----------------------------------|
-| Fiche capteur (~SENSOR_PROFILES~) | 2 entrées (hr / lr)      | 1 entrée par capteur (déjà extensible) |
-| Encoders               | 2 (hr / lr)                    | 1 encodeur par capteur           |
-| Tokens capteur         | 2 en dur (~append_sensor_token~) | 1 token par capteur           |
-| Fusion                 | concat binaire (~torch.cat~)   | attention N-à-N                  |
-| Requêtes (dates)       | une requête (union de 2 dates) | une requête par capteur          |
-
-La fusion ne requiert *pas* l'alignement temporel des capteurs : elle s'applique
-sur l'union des dates d'acquisition (Section~5.1.2). Généraliser à 3 capteurs
-revient à lever le plafond « couple fixe » de la formulation — sans changer les
-principes (encodeur spatial par date, Transformers temporel, entraînement en
-auto-encodeur masqué).
-
-*** Un 3ᵉ capteur ? (limite & perspective)
-
-*Limite* : tel quel, le modèle ne supporte que le couple S2+L8/L9. D'après le
-rapport (Section~5.1.2, p.~30) : « le modèle actuel est spécifique au couple
-S2+L8/L9, d'autres capteurs nécessitent un réentraînement ». Un 3ᵉ capteur
-(thermique, ou drone) ne se branche donc pas par configuration.
-
-*Perspective — super-résolution drone* : la généralisation N-flux ci-dessus
-ouvre la voie à un capteur *drone* (ex. MicaSense ~10~cm, 10 bandes) en
-sur-résolution. Le dépôt contient déjà le socle : dossier ~model/drone~ (config
-~hydra/datamodule/drone_s2.yaml~) et la préparation des données
-(~bin/convert_drone_to_tamrf.py~). L'étape suivante consiste à *étendre* la
-fiche capteur à ce 3ᵉ profil, puis à adapter la fusion en attention N-à-N.
-
-Voir ~RESULTATS.org~ pour la liste détaillée des entraînements/ablations lancés,
-et ~bin/test.py~ (~SENSOR_PROFILES~) pour la fiche capteur.
 * Installation
 
 This project uses [[https://pixi.sh][pixi]] as package manager and project configuration tool. Install =pixi= like this:
