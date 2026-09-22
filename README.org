@@ -24,6 +24,27 @@ Julien Michel, Jordi Inglada. Temporal Attention Multi-Resolution Fusion of Sate
 #+END_QUOTE
 
 
+
+** What about adding a third sensor?
+
+Our current formulation implements a *fixed pair* architecture: the model fuses one
+high-resolution sensor (Sentinel-2) with one low-resolution sensor (Landsat) into a
+shared latent representation via two sensor tokens and a binary fusion. Adding a third
+sensor (e.g. a thermal or drone-borne source) is *not* a configuration change -- it
+requires lifting this fixed-pair ceiling to an N-stream architecture:
+
+| Aspect         | Fixed-pair (current)        | Generalization to N sensors |
+|----------------+-----------------------------+-----------------------------|
+| Encoders       | 2, one per sensor           | 1 per sensor                |
+| Sensor tokens  | 2 (hr / lr)                 | 1 per sensor                |
+| Fusion         | binary concat               | N-wise attention            |
+| Query dates    | single query token          | per-sensor queries          |
+
+The model does *not* require the sensors to be temporally aligned: fusion is produced
+over the union of the acquisition dates of all sensors. Moving to three sensors only
+lifts the current two-sensor ceiling in the fusion formulation -- the core principles
+(date-wise spatial encoder, temporal transformer, masked auto-encoder training) are
+unchanged.
 * Installation
 
 This project uses [[https://pixi.sh][pixi]] as package manager and project configuration tool. Install =pixi= like this:
